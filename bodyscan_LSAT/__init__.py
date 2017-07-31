@@ -19,7 +19,7 @@
 #addon info read by Blender
 bl_info = {
     "name": "Lymphoedema 3D Scan Analysis Toolset",
-    "author": "Ivan Prga, Annette Nguyen, Jaspreet Kaur., Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
+    "author": "Ivan Prga, Annette Nguyen, Abdullah Albeladi, Jaspreet Kaur., Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
     "version": (1, 0, 0),
     "blender": (2, 7, 4),
     "description": "A toolset for importing, aligning and analysing 3D scans of lymphoedema patients.",

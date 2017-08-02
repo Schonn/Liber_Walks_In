@@ -19,15 +19,29 @@
 #addon info read by Blender
 bl_info = {
     "name": "Lymphoedema 3D Scan Analysis Toolset",
-    "author": "Ivan Prga, Annette Nguyen, Abdullah Albeladi, Jaspreet Kaur., Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
+    "author": "Ivan Prga, Annette Nguyen, Jaspreet Kaur., Abdullah Albeladi, Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
     "version": (1, 0, 0),
     "blender": (2, 7, 4),
     "description": "A toolset for importing, aligning and analysing 3D scans of lymphoedema patients.",
     "category": "Mesh"
     }
 
-#import blender python IDE libraries
+#import blender python libraries
 import bpy
+
+#class defining the LSAT menu
+class LSAT_ToolPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Tools Tab Label'
+    bl_context = 'objectmode'
+    bl_category = 'LSAT Tool'
+    
+    #TODO: when the menu is drawn to the screen?
+    def draw(self, context):
+        layout = self.layout
+        layout.operator('import_mesh.ply', text ='Import PLY')
+
 #use the following format to import other .py files from the local folder to make use of the contained classes/definitions
 #from . import (
 #        import_PLY_3DScan,
@@ -39,9 +53,11 @@ import bpy
 
 #this function is called when the addon is loaded into Blender
 def register():
+    bpy.utils.register_class(LSAT_ToolPanel)
     print("LSAT loaded")
 #this function is called when the addon is unloaded from Blender 
 def unregister():
+    bpy.utils.unregister_class(LSAT_ToolPanel)
     print("LSAT unloaded")
 
 #for the purpose of testing, the following lines will allow the addon to be registered 

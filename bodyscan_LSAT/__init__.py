@@ -28,20 +28,6 @@ bl_info = {
 
 #import blender python libraries
 import bpy
-
-#class defining the LSAT menu
-class LSAT_ToolPanel(bpy.types.Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_label = 'Tools Tab Label'
-    bl_context = 'objectmode'
-    bl_category = 'LSAT Tool'
-    
-    #TODO: when the menu is drawn to the screen?
-    def draw(self, context):
-        layout = self.layout
-        layout.operator('import_mesh.ply', text ='Import PLY')
-
 #use the following format to import other .py files from the local folder to make use of the contained classes/definitions
 #from . import (
 #        import_PLY_3DScan,
@@ -51,13 +37,87 @@ class LSAT_ToolPanel(bpy.types.Panel):
 #	 generate_heatmap
 #        )
 
+#setup panel class
+class LSAT_SetupPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Import'
+    bl_context = 'objectmode'
+    bl_category = 'Scan'
+    def draw(self, context):
+        self.layout.operator('lsat.importsetup', text ='Import PLY')
+        
+#Point placement panel class
+class LSAT_PointPlacementPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Point Placement'
+    bl_context = 'objectmode'
+    bl_category = 'Scan'
+    def draw(self, context):
+        self.layout.operator('import_mesh.ply', text ='Add Point')
+
+#Scan Alignment panel class
+class LSAT_ScanAlignmentPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Scan Alignment'
+    bl_context = 'objectmode'
+    bl_category = 'Scan'
+    def draw(self, context):
+        self.layout.operator('import_mesh.ply', text ='Align')
+        
+#Volume panel class
+class LSAT_VolumePanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Volume'
+    bl_context = 'objectmode'
+    bl_category = 'Scan'
+    def draw(self, context):
+        self.layout.operator('import_mesh.ply', text ='Selection')
+        self.layout.operator('import_mesh.ply', text ='Extraction')
+        self.layout.operator('import_mesh.ply', text ='Measure Total Difference')
+        
+#Map panel class
+class LSAT_MapPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_label = 'Map'
+    bl_context = 'objectmode'
+    bl_category = 'Scan'
+    def draw(self, context):
+        self.layout.operator('lsat.importsetup', text ='Radial Difference Map')
+
+#class to perform addition actions while 
+class LSATImportOperator(bpy.types.Operator):
+    bl_idname = "lsat.importsetup"
+    bl_label = "Setup Scene for LSAT"
+
+    def execute(self, context):
+        #operators are called by passing in EXEC_DEFAULT or INVOKE_DEFAULT (or other)
+        #in this case, since import_mesh takes some arguments and has a few steps, we invoke
+        bpy.ops.import_mesh.ply('INVOKE_DEFAULT')
+        #hover your mose over any button in blender and it will show you the py operator to call
+        return {'FINISHED'}
+
 #this function is called when the addon is loaded into Blender
 def register():
-    bpy.utils.register_class(LSAT_ToolPanel)
+    bpy.utils.register_class(LSAT_SetupPanel)
+    bpy.utils.register_class(LSAT_PointPlacementPanel)
+    bpy.utils.register_class(LSAT_ScanAlignmentPanel)
+    bpy.utils.register_class(LSAT_VolumePanel)
+    bpy.utils.register_class(LSAT_MapPanel)
+    bpy.utils.register_class(LSATImportOperator)
     print("LSAT loaded")
 #this function is called when the addon is unloaded from Blender 
 def unregister():
-    bpy.utils.unregister_class(LSAT_ToolPanel)
+    bpy.utils.unregister_class(LSAT_SetupPanel)
+    bpy.utils.unregister_class(LSAT_PointPlacementPanel)
+    bpy.utils.unregister_class(LSAT_ScanAlignmentPanel)
+    bpy.utils.unregister_class(LSAT_VolumePanel)
+    bpy.utils.unregister_class(LSAT_MapPanel)
+    bpy.utils.unregister_class(LSATImportOperator)
     print("LSAT unloaded")
 
 #for the purpose of testing, the following lines will allow the addon to be registered 

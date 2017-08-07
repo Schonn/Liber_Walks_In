@@ -37,6 +37,14 @@ import bpy
 #	 generate_heatmap
 #        )
 
+#properties to use as variables for LSAT
+class LSAT_StoredProperties(bpy.types.PropertyGroup):
+    LSAT_FirstImport = bpy.props.BoolProperty(
+        name="LSAT First Import",
+        description="LSAT is importing into this scene for the first time",
+        default = True
+        )
+
 #setup panel class
 class LSAT_SetupPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -55,7 +63,7 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
     bl_context = 'objectmode'
     bl_category = 'Scan'
     def draw(self, context):
-        self.layout.operator('import_mesh.ply', text ='Add Point')
+        self.layout.operator('lsat.placelandmark', text ='Add Point')
 
 #Scan Alignment panel class
 class LSAT_ScanAlignmentPanel(bpy.types.Panel):
@@ -89,7 +97,7 @@ class LSAT_MapPanel(bpy.types.Panel):
     def draw(self, context):
         self.layout.operator('lsat.importsetup', text ='Radial Difference Map')
 
-#class to perform addition actions while 
+#class to perform addition actions while importing ply
 class LSATImportOperator(bpy.types.Operator):
     bl_idname = "lsat.importsetup"
     bl_label = "Setup Scene for LSAT"
@@ -97,8 +105,23 @@ class LSATImportOperator(bpy.types.Operator):
     def execute(self, context):
         #operators are called by passing in EXEC_DEFAULT or INVOKE_DEFAULT (or other)
         #in this case, since import_mesh takes some arguments and has a few steps, we invoke
+        bpy.context.scene.unit_settings.system = 'METRIC'
+        bpy.context.scene.unit_settings.scale_length = 0.01
         bpy.ops.import_mesh.ply('INVOKE_DEFAULT')
         #hover your mose over any button in blender and it will show you the py operator to call
+        return {'FINISHED'}
+    
+#class to place landmarks on the object surface
+class LSATPlaceLandmarkOperator(bpy.types.Operator):
+    bl_idname = "lsat.placelandmark"
+    bl_label = "Place Landmark for Alignment in LSAT"
+
+    def execute(self, context):
+        bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000))
+        context.scene.tool_settings.use_snap = True
+        context.scene.tool_settings.snap_element = 'FACE'
+        context.scene.tool_settings.use_snap_align_rotation = False
+        bpy.ops.transform.translate('INVOKE_DEFAULT')
         return {'FINISHED'}
 
 #this function is called when the addon is loaded into Blender
@@ -109,6 +132,7 @@ def register():
     bpy.utils.register_class(LSAT_VolumePanel)
     bpy.utils.register_class(LSAT_MapPanel)
     bpy.utils.register_class(LSATImportOperator)
+    bpy.utils.register_class(LSATPlaceLandmarkOperator)
     print("LSAT loaded")
 #this function is called when the addon is unloaded from Blender 
 def unregister():
@@ -118,6 +142,7 @@ def unregister():
     bpy.utils.unregister_class(LSAT_VolumePanel)
     bpy.utils.unregister_class(LSAT_MapPanel)
     bpy.utils.unregister_class(LSATImportOperator)
+    bpy.utils.unregister_class(LSATPlaceLandmarkOperator)
     print("LSAT unloaded")
 
 #for the purpose of testing, the following lines will allow the addon to be registered 

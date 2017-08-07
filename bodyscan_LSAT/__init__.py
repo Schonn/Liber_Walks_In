@@ -37,13 +37,6 @@ import bpy
 #	 generate_heatmap
 #        )
 
-#properties to use as variables for LSAT
-class LSAT_StoredProperties(bpy.types.PropertyGroup):
-    LSAT_FirstImport = bpy.props.BoolProperty(
-        name="LSAT First Import",
-        description="LSAT is importing into this scene for the first time",
-        default = True
-        )
 
 #setup panel class
 class LSAT_SetupPanel(bpy.types.Panel):
@@ -62,6 +55,7 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
     bl_label = 'Point Placement'
     bl_context = 'objectmode'
     bl_category = 'Scan'
+    
     def draw(self, context):
         self.layout.operator('lsat.placelandmark', text ='Add Point')
 
@@ -101,14 +95,21 @@ class LSAT_MapPanel(bpy.types.Panel):
 class LSATImportOperator(bpy.types.Operator):
     bl_idname = "lsat.importsetup"
     bl_label = "Setup Scene for LSAT"
-
+    LSAT_Firstrun = bpy.props.BoolProperty(name="LSATFirstRun",default=True)
+    LSAT_ScanObjects = {} #create dictionary of scan objects but do not populate
     def execute(self, context):
-        #operators are called by passing in EXEC_DEFAULT or INVOKE_DEFAULT (or other)
-        #in this case, since import_mesh takes some arguments and has a few steps, we invoke
-        bpy.context.scene.unit_settings.system = 'METRIC'
-        bpy.context.scene.unit_settings.scale_length = 0.01
+        bpy.ops.object.select_all(action='DESELECT')
+        context.scene.unit_settings.system = 'METRIC'
+        context.scene.unit_settings.scale_length = 0.01
+        if(self.LSAT_Firstrun == True):
+            context.space_data.viewport_shade = 'SOLID'
+            bpy.ops.object.select_all(action='SELECT')
+            bpy.ops.object.delete(use_global=False)
+            self.LSAT_Firstrun = False
         bpy.ops.import_mesh.ply('INVOKE_DEFAULT')
-        #hover your mose over any button in blender and it will show you the py operator to call
+        self.LSAT_ScanObjects["Mesh" + str(len(self.LSAT_ScanObjects))] = bpy.context.object
+        print(self.LSAT_ScanObjects["Mesh" + str(len(self.LSAT_ScanObjects)-1)])
+        bpy.ops.view3d.view_selected('INVOKE_DEFAULT') #TODO: this does not work because the ply import doesnt finish before this runs
         return {'FINISHED'}
     
 #class to place landmarks on the object surface

@@ -94,22 +94,39 @@ class LSAT_MapPanel(bpy.types.Panel):
 #class to perform addition actions while importing ply
 class LSATImportOperator(bpy.types.Operator):
     bl_idname = "lsat.importsetup"
-    bl_label = "Setup Scene for LSAT"
-    LSAT_Firstrun = bpy.props.BoolProperty(name="LSATFirstRun",default=True)
+    bl_label = "Import .PLY"
+    LSAT_Firstrun = bpy.props.BoolProperty(name="LSATFirstRun",default=True) #for clearing scene
     LSAT_ScanObjects = {} #create dictionary of scan objects but do not populate
+    #filepath is an attribute of the operator type so this name must be used
+    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
+    
+    #call the operator and open the file selector, the operator only moves into execute once
+    #a file has been selected. TODO: add a ply filter
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+    
+    #once the file path is chosen, the operator moves to execute mode
     def execute(self, context):
+        #deselect all objects so we end up only selecting the newly imported object
         bpy.ops.object.select_all(action='DESELECT')
+        #change measurements to centimetres
         context.scene.unit_settings.system = 'METRIC'
         context.scene.unit_settings.scale_length = 0.01
+        #if this is the first import, clear the scene and set shading to solid
         if(self.LSAT_Firstrun == True):
             context.space_data.viewport_shade = 'SOLID'
             bpy.ops.object.select_all(action='SELECT')
             bpy.ops.object.delete(use_global=False)
             self.LSAT_Firstrun = False
-        bpy.ops.import_mesh.ply('INVOKE_DEFAULT')
+        #import the ply from the file that was selected in invoke
+        bpy.ops.import_mesh.ply(filepath=self.filepath)
+        #add the newly imported mesh to a dictionary under the name Mesh1/2/3 etc.
         self.LSAT_ScanObjects["Mesh" + str(len(self.LSAT_ScanObjects))] = bpy.context.object
+        #debug print out the newly added object
         print(self.LSAT_ScanObjects["Mesh" + str(len(self.LSAT_ScanObjects)-1)])
-        bpy.ops.view3d.view_selected('INVOKE_DEFAULT') #TODO: this does not work because the ply import doesnt finish before this runs
+        #zoom the camera into the newly imported object
+        bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
         return {'FINISHED'}
     
 #class to place landmarks on the object surface

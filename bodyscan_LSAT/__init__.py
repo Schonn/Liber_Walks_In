@@ -28,6 +28,8 @@ bl_info = {
 
 #import blender python libraries
 import bpy
+#import python random for colour generation
+import random
 #use the following format to import other .py files from the local folder to make use of the contained classes/definitions
 #from . import (
 #        import_PLY_3DScan,
@@ -133,8 +135,14 @@ class LSATImportOperator(bpy.types.Operator):
                 self.LSAT_Firstrun = False
             #import the ply from the file that was selected in invoke
             bpy.ops.import_mesh.ply(filepath=self.filepath)
-            #change the imported object's name
+            #change the imported object's name and offset location
             bpy.context.object.name = "LSAT_ScanMesh" + str(self.countImportedMeshes())
+            bpy.ops.transform.translate(value=(0.5 * (self.countImportedMeshes() - 1),0,0))
+            #assign a new pseudo random color to the object
+            LSATNewColor = bpy.data.materials.new(name="LSATMaterial_" + str(self.countImportedMeshes()))
+            LSATNewColor.darkness = 0.5
+            LSATNewColor.diffuse_color = (random.randint(0,10)/10,random.randint(0,10)/10,random.randint(0,10)/10)
+            bpy.context.active_object.data.materials.append(LSATNewColor)
             #zoom the camera into the newly imported object
             bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
         return {'FINISHED'}
@@ -231,14 +239,21 @@ class LSATAlignScansOperator(bpy.types.Operator):
             bpy.data.objects[LSATMeshName].matrix_parent_inverse = bpy.data.objects[LSATLandmarkName].matrix_world.inverted()
             #bpy.data.objects[LSATLandmarkName].
             
-        LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh0_Landmark0'].constraints.new('COPY_LOCATION')
-        LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh1_Landmark0']
-        LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh0_Landmark0'].constraints.new('COPY_ROTATION')
-        LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh1_Landmark0']
-        bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
-        bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.data.objects['LSAT_ScanMesh0_Landmark0'].select = True
+        for LSATScanMesh in range(1,LSATValidLandmarkSets['LandmarkSet0']+1):
+            LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_LOCATION')
+            LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
+            LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_ROTATION')
+            LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
+            bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0']
+            bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+            bpy.ops.object.select_all(action='DESELECT')
+            bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].select = True
+
+        #zoom the camera into the manual alignment landmark and activate manual rotation tweak
+        bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
+        context.scene.tool_settings.use_snap = False
+        bpy.ops.transform.trackball('INVOKE_DEFAULT')
+            
         return {'FINISHED'}
 
 #this function is called when the addon is loaded into Blender

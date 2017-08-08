@@ -68,7 +68,7 @@ class LSAT_ScanAlignmentPanel(bpy.types.Panel):
     bl_context = 'objectmode'
     bl_category = 'Scan'
     def draw(self, context):
-        self.layout.operator('import_mesh.ply', text ='Align')
+        self.layout.operator('lsat.alignscans', text ='Align')
         
 #Volume panel class
 class LSAT_VolumePanel(bpy.types.Panel):
@@ -110,17 +110,16 @@ class LSATImportOperator(bpy.types.Operator):
         return MeshCount
     
     #call the operator and open the file selector, the operator only moves into execute once
-    #a file has been selected
+    #a file has been selected. TODO: add a ply filter
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
     
     #once the file path is chosen, the operator moves to execute mode
     def execute(self, context):
-        
-        if self.filepath.split('.')[-1] != 'ply' :
-            self.report({'INFO'}, 'Please select a PLY file.')
-        else :
+        if self.filepath.split('.')[-1] != 'ply':
+            self.report({'INFO'},'Please select a PLY file.')
+        else:
             #deselect all objects so we end up only selecting the newly imported object
             bpy.ops.object.select_all(action='DESELECT')
             #change measurements to centimetres
@@ -155,8 +154,8 @@ class LSATPlaceLandmarkOperator(bpy.types.Operator):
 
     def execute(self, context):
         if(bpy.context.object == None):
+            self.report({'INFO'},'Please select an object.')
             return {'CANCELLED'}
-            #TODO: Cancel with help popup if no mesh is selected!
         #first get the name of the currently selected mesh to assign landmarks to
         designatedObjectForLandmark = bpy.context.object.name
         #if it is a landmark we have selected, get the original object from the landmark name
@@ -168,6 +167,11 @@ class LSATPlaceLandmarkOperator(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=0.1)
         bpy.context.object.name = designatedObjectForLandmark + "_Landmark" + str(self.countImportedLandmarks(designatedObjectForLandmark))
+        if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 0):
+            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_Landmark0"].constraints.new('TRACK_TO')
+            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_Landmark" + str(self.countImportedLandmarks(designatedObjectForLandmark)-1)]
+            if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
+                LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -187,15 +191,45 @@ class LSATAlignScansOperator(bpy.types.Operator):
                 MeshCount += 1
         return MeshCount
 
-    #count the number of created landmarks in the scene
+    #count the maximum number of landmarks that is associated to any one mesh
     def countImportedLandmarks(self):
-        LandmarkCount = 0
+        MaximumLandmarkCount = -1
         for PotentialLandmark in bpy.context.scene.objects:
-            if PotentialLandmark.type == 'EMPTY' and PotentialLandmark.name.find("LSAT_Landmark") > -1:
-                LandmarkCount += 1
-        return LandmarkCount
+            LocationPotentialLandmarkName = PotentialLandmark.name.find("_Landmark")
+            if(PotentialLandmark.type == 'EMPTY' and LocationPotentialLandmarkName > -1):
+                if(int(PotentialLandmark.name[LocationPotentialLandmarkName + 9:]) > MaximumLandmarkCount):
+                    MaximumLandmarkCount = int(PotentialLandmark.name[LocationPotentialLandmarkName + 9:])
+        return MaximumLandmarkCount
 
     def execute(self, context):
+        #get the maximum count of any landmark collection
+        LSATLandmarkCount = self.countImportedLandmarks()
+        if(LSATLandmarkCount < 0):
+            return {'CANCELLED'}
+        #create a dictionary of landmark sets
+        LSATValidLandmarkSets = {}
+        #iterate through only the number of possible landmark sets that there are
+        for LSATPotentialLandmarkSet in range(0,LSATLandmarkCount+1):
+            LSATMeshCount = self.countImportedMeshes()
+            #each set must have 2 points in it, this counts those two points
+            LSATSetCounter = 0
+            #iterate through all meshes in the context of the current potential landmark pair
+            for LSATMeshNumber in range(0,LSATMeshCount):
+                LSATMeshName = "LSAT_ScanMesh" + str(LSATMeshNumber)
+                if(LSATMeshName + "_Landmark" + str(LSATPotentialLandmarkSet) in bpy.context.scene.objects):
+                    LSATSetCounter += 1
+                if(LSATSetCounter == 2): #if a pair is found, add a landmark set to the dictionary
+                    LSATValidLandmarkSets["LandmarkSet" + str(len(LSATValidLandmarkSets))] = LSATMeshCount - 1
+        
+        #iterate through all meshes that have landmarks and parent the mesh to the first landmark
+        for LSATScanMesh in range(0,LSATValidLandmarkSets['LandmarkSet0']+1):
+            LSATMeshName = "LSAT_ScanMesh" + str(LSATScanMesh)
+            LSATLandmarkName = LSATMeshName + "_Landmark0"
+            bpy.context.scene.objects.active = bpy.data.objects[LSATLandmarkName]
+            bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+            bpy.data.objects[LSATMeshName].parent = bpy.data.objects[LSATLandmarkName]
+            bpy.data.objects[LSATMeshName].matrix_parent_inverse = bpy.data.objects[LSATLandmarkName].matrix_world.inverted()
+            #bpy.data.objects[LSATLandmarkName].
         return {'FINISHED'}
 
 #this function is called when the addon is loaded into Blender

@@ -110,7 +110,7 @@ class LSATImportOperator(bpy.types.Operator):
         return MeshCount
     
     #call the operator and open the file selector, the operator only moves into execute once
-    #a file has been selected. TODO: add a ply filter
+    #a file has been selected
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}

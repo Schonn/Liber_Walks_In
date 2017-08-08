@@ -230,6 +230,15 @@ class LSATAlignScansOperator(bpy.types.Operator):
             bpy.data.objects[LSATMeshName].parent = bpy.data.objects[LSATLandmarkName]
             bpy.data.objects[LSATMeshName].matrix_parent_inverse = bpy.data.objects[LSATLandmarkName].matrix_world.inverted()
             #bpy.data.objects[LSATLandmarkName].
+            
+        LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh0_Landmark0'].constraints.new('COPY_LOCATION')
+        LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh1_Landmark0']
+        LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh0_Landmark0'].constraints.new('COPY_ROTATION')
+        LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh1_Landmark0']
+        bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
+        bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.data.objects['LSAT_ScanMesh0_Landmark0'].select = True
         return {'FINISHED'}
 
 #this function is called when the addon is loaded into Blender

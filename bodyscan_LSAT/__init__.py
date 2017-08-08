@@ -252,7 +252,8 @@ class LSATAlignScansOperator(bpy.types.Operator):
         #zoom the camera into the manual alignment landmark and activate manual rotation tweak
         bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
         context.scene.tool_settings.use_snap = False
-        bpy.ops.transform.trackball('INVOKE_DEFAULT')
+        #use trackball for manual alignment, but running it straight after auto align breaks the result!
+        #bpy.ops.transform.trackball('INVOKE_DEFAULT') 
             
         return {'FINISHED'}
 

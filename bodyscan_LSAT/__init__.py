@@ -60,6 +60,9 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
     bl_category = 'Scan'
     
     def draw(self, context):
+        self.layout.operator('lsat.sagittal_plane', text ='Create Sagittal Plane')
+        self.layout.operator('lsat.transverse_axial_plane', text ='Create Transverse Axial Plane')
+        self.layout.operator('lsat.coronal_plane', text ='Create Coronal Plane')
         self.layout.operator('lsat.nose_place_landmark', text ='Place Nose Landmark')
         self.layout.operator('lsat.l_ear_place_landmark', text ='Place Left Ear Landmark')
         self.layout.operator('lsat.r_ear_place_landmark', text ='Place Right Ear Landmark')
@@ -129,6 +132,40 @@ class LSATGenHeatmapOperator(bpy.types.Operator):
     def execute(self, context):
         print("Generate heatmap")
         return {'FINISHED'}    
+
+class LSATSagittalPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.sagittal_plane"
+    bl_label = "Place Sagittal Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=20, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(0,0,1))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(True,False,False),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Sagittal Plane Placed")
+        return {'FINISHED'}    
+
+class LSATCoronalPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.coronal_plane"
+    bl_label = "Place Coronal Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=20, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,True,False),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Coronal Plane Placed")
+        return {'FINISHED'}  
+    
+class LSATTransverseAxialPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.transverse_axial_plane"
+    bl_label = "Place Transverse Axial Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=20, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,False,True),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Transverse Axial Plane Placed")
+        return {'FINISHED'}
+
     
 #class to perform addition actions while importing ply
 class LSATImportOperator(bpy.types.Operator):
@@ -470,8 +507,11 @@ def register():
     bpy.utils.register_class(LSATVolExtractionOperator)
     bpy.utils.register_class(LSATVolMeasureDiffOperator)
     bpy.utils.register_class(LSATGenHeatmapOperator)
-    
+    bpy.utils.register_class(LSATSagittalPlaneOperator)
+    bpy.utils.register_class(LSATCoronalPlaneOperator)
+    bpy.utils.register_class(LSATTransverseAxialPlaneOperator)
     print("LSAT loaded")
+    
 #this function is called when the addon is unloaded from Blender 
 def unregister():
     bpy.utils.unregister_class(LSAT_SetupPanel)
@@ -490,6 +530,9 @@ def unregister():
     bpy.utils.unregister_class(LSATVolExtractionOperator)
     bpy.utils.unregister_class(LSATVolMeasureDiffOperator)
     bpy.utils.unregister_class(LSATGenHeatmapOperator)
+    bpy.utils.unregister_class(LSATSagittalPlaneOperator)
+    bpy.utils.unregister_class(LSATCoronalPlaneOperator)
+    bpy.utils.unregister_class(LSATTransverseAxialPlaneOperator)
     print("LSAT unloaded")
 
 #for the purpose of testing, the following lines will allow the addon to be registered 

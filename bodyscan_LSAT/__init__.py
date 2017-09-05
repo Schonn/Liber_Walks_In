@@ -129,7 +129,7 @@ class LSATVolMeasureDiffOperator(bpy.types.Operator):
         plane_x = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[0] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[0] ) / 2
         plane_y = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[1] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[1] ) / 2
         plane_z = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[2] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[2] ) / 2
-        plane = bpy.ops.mesh.primitive_plane_add(radius=1.2, view_align=False, enter_editmode=False, location=(plane_x, plane_y, plane_z), rotation=(0,math.pi/2,0) )
+        plane = bpy.ops.mesh.primitive_plane_add(radius=1200, view_align=False, enter_editmode=False, location=(plane_x, plane_y, plane_z), rotation=(0,math.pi/2,0) )
         
         verts = [ objects['LSAT_ScanMesh0_LandmarkLeftEar'].location,
         objects['LSAT_ScanMesh0_LandmarkNose'].location,
@@ -158,7 +158,7 @@ class LSATVolMeasureDiffOperator(bpy.types.Operator):
 
         chopboard_cube = objects['Cube']
         chopboard_cube.name = 'ChoppingBoardCube'
-        chopboard_cube.scale = (0.02, .02,0.0057)
+        chopboard_cube.scale = (2, 2,0.57)
         
         
         bpy.context.scene.cursor_location = (plane_x, plane_y, plane_z)
@@ -279,19 +279,21 @@ class LSATLEarPlaceLandmarkOperator(bpy.types.Operator):
         if(landmarkOwnerNameEnd > -1):
             designatedObjectForLandmark = designatedObjectForLandmark[:landmarkOwnerNameEnd] #chop off the characters which follow the owner name
         print("got designated object for landmark: " + str(designatedObjectForLandmark))
-        #if the landmark already exists, remove it
-        if(designatedObjectForLandmark + "_LandmarkLeftEar" in bpy.context.scene.objects):
-            bpy.context.scene.objects.active = bpy.data.objects[ designatedObjectForLandmark + "_LandmarkLeftEar" ]
-            bpy.ops.object.delete(use_global=False)
+  
         #deselect all objects so we end up only selecting the newly created landmark
         bpy.ops.object.select_all(action='DESELECT')
+        #if the landmark already exists, remove it
+        if(designatedObjectForLandmark + "_LandmarkLeftEar" in bpy.context.scene.objects):
+            bpy.data.objects[designatedObjectForLandmark + "_LandmarkLeftEar"].select = True
+            bpy.ops.object.delete(use_global=False)
+            
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkLeftEar" 
         if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
             LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
             LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkLeftEar"]
-            if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-                LSATTrackToConstraint.influence = 0.5
+            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
+            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -317,19 +319,21 @@ class LSATREarPlaceLandmarkOperator(bpy.types.Operator):
         if(landmarkOwnerNameEnd > -1):
             designatedObjectForLandmark = designatedObjectForLandmark[:landmarkOwnerNameEnd] #chop off the characters which follow the owner name
         print("got designated object for landmark: " + str(designatedObjectForLandmark))
-        #if the landmark already exists, remove it
-        if(designatedObjectForLandmark + "_LandmarkRightEar" in bpy.context.scene.objects):
-            bpy.context.scene.objects.active = bpy.data.objects[ designatedObjectForLandmark + "_LandmarkRightEar" ]
-            bpy.ops.object.delete(use_global=False)
+
         #deselect all objects so we end up only selecting the newly created landmark
         bpy.ops.object.select_all(action='DESELECT')
+        #if the landmark already exists, remove it
+        if(designatedObjectForLandmark + "_LandmarkRightEar" in bpy.context.scene.objects):
+            bpy.data.objects[designatedObjectForLandmark + "_LandmarkRightEar"].select = True
+            bpy.ops.object.delete(use_global=False)
+            
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkRightEar"
         if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
             LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
             LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkRightEar"]
-            if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-                LSATTrackToConstraint.influence = 0.5
+            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
+            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -390,11 +394,11 @@ class LSATNosePlaceLandmarkOperator(bpy.types.Operator):
         #first get the name of the currently selected mesh to assign landmarks to
         designatedObjectForLandmark = bpy.context.object.name
         #if the landmark already exists, remove it
+        bpy.ops.object.select_all(action='DESELECT')
         if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
-            bpy.context.scene.objects.active = bpy.data.objects[ designatedObjectForLandmark + "_LandmarkNose" ]
+            bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].select = True
             bpy.ops.object.delete(use_global=False)
         #deselect all objects so we end up only selecting the newly created landmark
-        bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkNose" 
         context.scene.tool_settings.use_snap = True
@@ -568,3 +572,4 @@ def unregister():
 #when this script is run in the Blender python IDE, without having to register the addon in 
 if __name__ == '__main__':
     register()
+    print("start")

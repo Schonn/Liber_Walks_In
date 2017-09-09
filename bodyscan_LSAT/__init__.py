@@ -63,6 +63,9 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
     bl_category = 'Scan'
     
     def draw(self, context):
+        self.layout.operator('lsat.sagittal_plane', text ='Create Sagittal Plane')
+        self.layout.operator('lsat.transverse_axial_plane', text ='Create Transverse Axial Plane')
+        self.layout.operator('lsat.coronal_plane', text ='Create Coronal Plane')
         self.layout.operator('lsat.nose_place_landmark', text ='Place Nose Landmark')
         self.layout.operator('lsat.l_ear_place_landmark', text ='Place Left Ear Landmark')
         self.layout.operator('lsat.r_ear_place_landmark', text ='Place Right Ear Landmark')
@@ -100,6 +103,39 @@ class LSAT_MapPanel(bpy.types.Panel):
     def draw(self, context):
         self.layout.operator('lsat.importsetup', text ='Radial Difference Map')
         self.layout.operator('lsat.gen_heatmap', text ='Generate HeatMap')
+
+class LSATSagittalPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.sagittal_plane"
+    bl_label = "Place Sagittal Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(0,0,1))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(True,False,False),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Sagittal Plane Placed")
+        return {'FINISHED'}    
+
+class LSATCoronalPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.coronal_plane"
+    bl_label = "Place Coronal Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,True,False),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Coronal Plane Placed")
+        return {'FINISHED'}  
+    
+class LSATTransverseAxialPlaneOperator(bpy.types.Operator):
+    bl_idname = "lsat.transverse_axial_plane"
+    bl_label = "Place Transverse Axial Plane"
+
+    def execute(self, context):
+        bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
+        bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,False,True),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
+        print("Transverse Axial Plane Placed")
+        return {'FINISHED'}
 
 class LSATVolSelectionOperator(bpy.types.Operator):
     bl_idname = "lsat.vol_select_area"
@@ -289,11 +325,11 @@ class LSATLEarPlaceLandmarkOperator(bpy.types.Operator):
             
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkLeftEar" 
-        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
-            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
-            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkLeftEar"]
-            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-            #    LSATTrackToConstraint.influence = 0.5
+#        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
+#            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
+#            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkLeftEar"]
+#            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
+#            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -329,11 +365,11 @@ class LSATREarPlaceLandmarkOperator(bpy.types.Operator):
             
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkRightEar"
-        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
-            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
-            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkRightEar"]
-            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-            #    LSATTrackToConstraint.influence = 0.5
+#        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
+#            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
+#            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkRightEar"]
+#            if(designatedObjectForLandmark + "_LandmarkLeftEar"):
+#            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -472,53 +508,93 @@ class LSATAlignScansOperator(bpy.types.Operator):
                 if(int(PotentialLandmark.name[LocationPotentialLandmarkName + 9:]) > MaximumLandmarkCount):
                     MaximumLandmarkCount = int(PotentialLandmark.name[LocationPotentialLandmarkName + 9:])
         return MaximumLandmarkCount
-													
+    
+    #check to see if the landmark mode is nose, leftear, rightear or if it's iterated instead
+    def checkUniqueLandmarkUse(self):
+        UsingUniqueLandmarks = False
+        NamedLandmarks = {'Nose': False, 'LeftEar': False, 'RightEar': False}
+        for MeshNumber in range(self.countImportedMeshes()):
+            if("LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose" in bpy.context.scene.objects):
+                NamedLandmarks['Nose'] = True
+            else:
+                NamedLandmarks['Nose'] = False
+            if("LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkLeftEar" in bpy.context.scene.objects):
+                NamedLandmarks['LeftEar'] = True
+            else:
+                NamedLandmarks['LeftEar'] = False
+            if("LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkRightEar" in bpy.context.scene.objects):
+                NamedLandmarks['RightEar'] = True
+            else:
+                NamedLandmarks['RightEar'] = False
+        if(NamedLandmarks['Nose'] == True and NamedLandmarks['LeftEar'] == True and NamedLandmarks['RightEar'] == True):
+            UsingUniqueLandmarks = True
+        return UsingUniqueLandmarks
+	
     def execute(self, context):
-        #get the maximum count of any landmark collection
-        LSATLandmarkCount = self.countImportedLandmarks()
-        if(LSATLandmarkCount < 0):
-            return {'CANCELLED'}
-        #create a dictionary of landmark sets
-        LSATValidLandmarkSets = {}
-        #iterate through only the number of possible landmark sets that there are
-        for LSATPotentialLandmarkSet in range(0,LSATLandmarkCount+1):
-            LSATMeshCount = self.countImportedMeshes()
-            #each set must have 2 points in it, this counts those two points
-            LSATSetCounter = 0
-            #iterate through all meshes in the context of the current potential landmark pair
-            for LSATMeshNumber in range(0,LSATMeshCount):
-                LSATMeshName = "LSAT_ScanMesh" + str(LSATMeshNumber)
-                if(LSATMeshName + "_Landmark" + str(LSATPotentialLandmarkSet) in bpy.context.scene.objects):
-                    LSATSetCounter += 1
-                if(LSATSetCounter == 2): #if a pair is found, add a landmark set to the dictionary
-                    LSATValidLandmarkSets["LandmarkSet" + str(len(LSATValidLandmarkSets))] = LSATMeshCount - 1
-        
-        #iterate through all meshes that have landmarks and parent the mesh to the first landmark
-        for LSATScanMesh in range(0,LSATValidLandmarkSets['LandmarkSet0']+1):
-            LSATMeshName = "LSAT_ScanMesh" + str(LSATScanMesh)
-            LSATLandmarkName = LSATMeshName + "_Landmark0"
-            bpy.context.scene.objects.active = bpy.data.objects[LSATLandmarkName]
-            bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
-            bpy.data.objects[LSATMeshName].parent = bpy.data.objects[LSATLandmarkName]
-            bpy.data.objects[LSATMeshName].matrix_parent_inverse = bpy.data.objects[LSATLandmarkName].matrix_world.inverted()
-            #bpy.data.objects[LSATLandmarkName].
-            
-        for LSATScanMesh in range(1,LSATValidLandmarkSets['LandmarkSet0']+1):
-            LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_LOCATION')
-            LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
-            LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_ROTATION')
-            LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
-            bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0']
-            bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
-            bpy.ops.object.select_all(action='DESELECT')
-            bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].select = True
+        #are the landmarks labeled nose, left ear, right ear
+        LSATUsingUniqueLandmarks = self.checkUniqueLandmarkUse()
+        if(LSATUsingUniqueLandmarks == True):
+            print( "Unique Landmark Alignment") 
+            for MeshNumber in range(self.countImportedMeshes()):
+                LSATLeftEarTrackToConstraint = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].constraints.new('TRACK_TO')
+                LSATLeftEarTrackToConstraint.target = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkLeftEar"]
+                LSATLeftEarTrackToConstraint.influence = 1
+                LSATRightEarTrackToConstraint = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].constraints.new('TRACK_TO')
+                LSATRightEarTrackToConstraint.target = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkRightEar"]
+                LSATRightEarTrackToConstraint.influence = 0.5
+                
+                bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"]
+                bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+                bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber)].parent = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"]
+                bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber)].matrix_parent_inverse = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].matrix_world.inverted()
+            for LSATScanMesh in range(1,self.countImportedMeshes()):
+                LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].constraints.new('COPY_LOCATION')
+                LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose']
+                LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].constraints.new('COPY_ROTATION')
+                LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose']
+                bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose']
+                bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].select = True	
+        elif(UsingUniqueLandmarks == False):
+            #get the maximum count of any numeric landmark collection
+            LSATLandmarkCount = self.countImportedLandmarks()
+            if(LSATLandmarkCount < 0):
+                return {'CANCELLED'}
+            #create a dictionary of landmark sets
+            LSATValidLandmarkSets = {}
+            #iterate through only the number of possible landmark sets that there are
+            for LSATPotentialLandmarkSet in range(0,LSATLandmarkCount+1):
+                LSATMeshCount = self.countImportedMeshes()
+                #each set must have 2 points in it, this counts those two points
+                LSATSetCounter = 0
+                #iterate through all meshes in the context of the current potential landmark pair
+                for LSATMeshNumber in range(0,LSATMeshCount):
+                    LSATMeshName = "LSAT_ScanMesh" + str(LSATMeshNumber)
+                    if(LSATMeshName + "_Landmark" + str(LSATPotentialLandmarkSet) in bpy.context.scene.objects):
+                        LSATSetCounter += 1
+                    if(LSATSetCounter == 2): #if a pair is found, add a landmark set to the dictionary
+                        LSATValidLandmarkSets["LandmarkSet" + str(len(LSATValidLandmarkSets))] = LSATMeshCount - 1
 
-										
-														 
-												   
-															
-												   
-															 
+            #iterate through all meshes that have landmarks and parent the mesh to the first landmark
+            for LSATScanMesh in range(0,LSATValidLandmarkSets['LandmarkSet0']+1):
+                LSATMeshName = "LSAT_ScanMesh" + str(LSATScanMesh)
+                LSATLandmarkName = LSATMeshName + "_Landmark0"
+                bpy.context.scene.objects.active = bpy.data.objects[LSATLandmarkName]
+                bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+                bpy.data.objects[LSATMeshName].parent = bpy.data.objects[LSATLandmarkName]
+                bpy.data.objects[LSATMeshName].matrix_parent_inverse = bpy.data.objects[LSATLandmarkName].matrix_world.inverted()
+                #bpy.data.objects[LSATLandmarkName].
+                
+            for LSATScanMesh in range(1,LSATValidLandmarkSets['LandmarkSet0']+1):
+                LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_LOCATION')
+                LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
+                LSATCopyRotationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].constraints.new('COPY_ROTATION')
+                LSATCopyRotationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_Landmark0']
+                bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0']
+                bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].select = True						 
 												   
         #zoom the camera into the manual alignment landmark and activate manual rotation tweak
         bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
@@ -546,6 +622,9 @@ def register():
     bpy.utils.register_class(LSATVolExtractionOperator)
     bpy.utils.register_class(LSATVolMeasureDiffOperator)
     bpy.utils.register_class(LSATGenHeatmapOperator)
+    bpy.utils.register_class(LSATSagittalPlaneOperator)
+    bpy.utils.register_class(LSATCoronalPlaneOperator)
+    bpy.utils.register_class(LSATTransverseAxialPlaneOperator)
     
     print("LSAT loaded")
 #this function is called when the addon is unloaded from Blender 
@@ -566,6 +645,9 @@ def unregister():
     bpy.utils.unregister_class(LSATVolExtractionOperator)
     bpy.utils.unregister_class(LSATVolMeasureDiffOperator)
     bpy.utils.unregister_class(LSATGenHeatmapOperator)
+    bpy.utils.unregister_class(LSATSagittalPlaneOperator)
+    bpy.utils.unregister_class(LSATCoronalPlaneOperator)
+    bpy.utils.unregister_class(LSATTransverseAxialPlaneOperator)
     print("LSAT unloaded")
 
 #for the purpose of testing, the following lines will allow the addon to be registered 

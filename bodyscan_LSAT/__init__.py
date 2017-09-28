@@ -32,7 +32,7 @@ import bpy
 import random
 import math
 import bmesh
-from mathutils import Matrix, Vector
+import mathutils
 #use the following format to import other .py files from the local folder to make use of the contained classes/definitions
 #from . import (
 #        import_PLY_3DScan,
@@ -41,7 +41,6 @@ from mathutils import Matrix, Vector
 #	 extract_volume,
 #	 generate_heatmap
 #        )
-
 
 
 #setup panel class
@@ -142,6 +141,37 @@ class LSATVolSelectionOperator(bpy.types.Operator):
     bl_label = "Area Selection"
 
     def execute(self, context):
+        #deselect everything so only the desired meshes are selected
+        bpy.ops.object.select_all(action='DESELECT')
+        #TODO: add a for loop here to flip all meshes and combine them all
+        bpy.data.objects["LSAT_ScanMesh1"].select = True
+        #quickly go into edit mode and flip the normals
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.mesh.flip_normals()
+        #return to object mode
+        bpy.ops.object.mode_set()
+        #add the first mesh to the selection and join all meshes
+        bpy.data.objects["LSAT_ScanMesh0"].select = True
+        bpy.ops.object.join()
+        bpy.context.object.name = "LSAT_ScanMeshCombined" 
+        bpy.ops.object.select_all(action='DESELECT')
+        
+        #make sphere and add shrinkwrap
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5,size=3,location=(1000,1000,1000))
+        bpy.context.object.name = "LSAT_VolumeSelectSphere" 
+        volumeSelectShrinkWrap = bpy.context.object.modifiers.new(type='SHRINKWRAP', name="shrinkWrap1")
+        volumeSelectShrinkWrap.target = bpy.data.objects["LSAT_ScanMeshCombined"]
+        volumeSelectShrinkWrap.wrap_method = 'PROJECT'
+        volumeSelectShrinkWrap.use_negative_direction = True
+        volumeSelectShrinkWrap.use_positive_direction = True
+        volumeSelectShrinkWrap.use_project_y = True
+        volumeSelectShrinkWrap.use_project_x = False
+        volumeSelectShrinkWrap.use_project_z = False
+        volumeSelectShrinkWrap.cull_face = 'OFF'
+        context.scene.tool_settings.use_snap = True
+        context.scene.tool_settings.snap_element = 'FACE'
+        context.scene.tool_settings.use_snap_align_rotation = False
+        bpy.ops.transform.translate('INVOKE_DEFAULT')
         print("Select Area")
         return {'FINISHED'}
     
@@ -157,85 +187,94 @@ class LSATVolMeasureDiffOperator(bpy.types.Operator):
     bl_idname = "lsat.vol_measure_diff"
     bl_label = "Measure Total Difference"
 
+    #derived from object_print3d_utils.py from the print 3d plugin
+    def clean_float(self,text):
+        # strip trailing zeros: 0.000 -> 0.0
+        index = text.rfind(".")
+        if index != -1:
+            index += 2
+            head, tail = text[:index], text[index:]
+            tail = tail.rstrip("0")
+            text = head + tail
+        return text
+
     def execute(self, context):
         print("Measure Total Difference")
-        
-        objects = bpy.context.scene.objects
-        origin_mesh = objects['LSAT_ScanMesh0']
-        plane_x = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[0] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[0] ) / 2
-        plane_y = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[1] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[1] ) / 2
-        plane_z = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[2] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[2] ) / 2
-        plane = bpy.ops.mesh.primitive_plane_add(radius=1200, view_align=False, enter_editmode=False, location=(plane_x, plane_y, plane_z), rotation=(0,math.pi/2,0) )
-        
-        verts = [ objects['LSAT_ScanMesh0_LandmarkLeftEar'].location,
-        objects['LSAT_ScanMesh0_LandmarkNose'].location,
-        objects['LSAT_ScanMesh0_LandmarkRightEar'].location ]
-        
-        faces = [ (0,1,2) ]
-        HeadTiltmesh = bpy.data.meshes.new('HeadTilt')
-        HeadTiltmesh.from_pydata(verts, [], faces)
-        
-        HeadTiltmesh.update()
-        HeadTilt = bpy.data.objects.new('HeadTiltPlane', HeadTiltmesh)
-        
-        bpy.context.scene.objects.link(HeadTilt )
-        tilt_correction = HeadTiltmesh.polygons[0].normal 
-        print( tilt_correction )
-        plane = objects['Plane']
-        plane.name = 'FlipPlane'
-        
-        earlobes_dist = abs(objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[0] - objects['LSAT_ScanMesh0_LandmarkRightEar'].location[0] )
-        print( earlobes_dist )
-        chopboard_plane_z = plane_z - 3.9*earlobes_dist 
-        #chopboard_plane_y = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[1] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[1] ) / 2
-        #chopboard_plane_z = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[2] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[2] ) / 2
-      
-        chopboard_cube = bpy.ops.mesh.primitive_cube_add( view_align=False, enter_editmode=False, location=(plane_x, plane_y, chopboard_plane_z) )
+        contextSelectionSphere = context.active_object.to_mesh(bpy.context.scene, True, 'PREVIEW', calc_tessface=False)
+        volumeMeshHelper = bmesh.new()
+        volumeMeshHelper.from_mesh(contextSelectionSphere)
+        bpy.data.meshes.remove(contextSelectionSphere)
+        bmesh.ops.triangulate(volumeMeshHelper, faces=volumeMeshHelper.faces)
 
-        chopboard_cube = objects['Cube']
-        chopboard_cube.name = 'ChoppingBoardCube'
-        chopboard_cube.scale = (2, 2,0.57)
-        
-        
-        bpy.context.scene.cursor_location = (plane_x, plane_y, plane_z)
-        #duplicate the mesh, along the plane
-        #the ear. nose landmarks must already set.
-        #build the plane. flip it along the plane.
-        dupflip_mesh = objects['LSAT_ScanMesh0'].copy()
-        dupflip_mesh.name = 'LSAT_ScanMesh0_flip'
-        #bpy.context.scene.objects.link(dupflip_mesh )
-        #origin_mesh
-        
-        #rot_mat = Matrix.Rotation( 50, 4, tilt_correction )   # you can also use as axis Y,Z or a custom vector like (x,y,z)
+        volume = volumeMeshHelper.calc_volume()
+        volumeMeshHelper.free()
+        print("Volume: %s cm³" % self.clean_float("%.4f" % ((volume * (context.scene.unit_settings.scale_length ** 3.0)) / (0.01 ** 3.0))))
 
-        # decompose world_matrix's components, and from them assemble 4x4 matrices
-        orig_loc, orig_rot, orig_scale = dupflip_mesh.matrix_world.decompose()
-        #orig_loc.x = plane_x + 0.071
-        #orig_loc.y -= plane_y
-        #orig_loc.z -= plane_z
-        orig_loc_mat = Matrix.Translation( orig_loc )
-        #orig_loc_mat = Matrix.Translation( (plane_x,plane_y,plane_z) )
-        orig_rot_mat = orig_rot.to_matrix().to_4x4()
-        orig_scale_mat = Matrix.Scale(orig_scale[0],4,(1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
-        scale_mat = Matrix.Scale(-orig_scale[0],4,(-1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
+#        #create sagittal plane (between eyes)
+#        planeCreateCoordinates = [0,0,0]
+#        for coordinateAxis in range(0,3):
+#            planeCreateCoordinates[coordinateAxis] = (sceneObjects[originMesh.name + "_LandmarkLeftEar"].location[coordinateAxis] + sceneObjects[originMesh.name + "_LandmarkRightEar"].location[coordinateAxis])
+#        RelativeSagittalPlane = bpy.ops.mesh.primitive_plane_add(radius=200,view_align=False,enter_editmode=False,location=(planeCreateCoordinates[0],planeCreateCoordinates[1],planeCreateCoordinates[2]),rotation=(0,math.pi/2,0))
         
-        plane.hide = True
+#       print(HeadTiltPlaneMesh.polygons[0].normal)
+#       HeadTiltPlaneObject.matrix_world *= mathutils.Matrix.Translation(HeadTiltPlaneMesh.polygons[0].center * HeadTiltPlaneMesh.polygons[0].normal.to_track_quat('-Z','Y').to_matrix().to_4x4())
+#       HeadTiltPlaneObject.rotation_euler = mathutils.Euler((HeadTiltPlaneMesh.polygons[0].normal), 'XYZ')
         
-        #create & apply boolean operator
-        bool_one = origin_mesh.modifiers.new(type="BOOLEAN", name="bool 1")
-        bool_one.object = chopboard_cube
-        bool_one.operation = 'DIFFERENCE'
-        
-        #bpy.ops.object.modifier_apply(apply_as='DATA', modifier=bool_one.name)
-        
-        #calculate volume
-        
-        bm = bmesh.new()
-        bm.from_object(bpy.context.object, bpy.context.scene) # could also use from_mesh() if you don't care about deformation etc.
+#        plane = objects['Plane']
+#        plane.name = 'FlipPlane'
+#        
+#        earlobes_dist = abs(objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[0] - objects['LSAT_ScanMesh0_LandmarkRightEar'].location[0] )
+#        print( earlobes_dist )
+#        chopboard_plane_z = plane_z - 3.9*earlobes_dist 
+#        #chopboard_plane_y = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[1] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[1] ) / 2
+#        #chopboard_plane_z = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[2] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[2] ) / 2
+#      
+#        chopboard_cube = bpy.ops.mesh.primitive_cube_add( view_align=False, enter_editmode=False, location=(plane_x, plane_y, chopboard_plane_z) )
 
-        print(bm.calc_volume())
-        
-        plane.hide = True
+#        chopboard_cube = objects['Cube']
+#        chopboard_cube.name = 'ChoppingBoardCube'
+#        chopboard_cube.scale = (2, 2,0.57)
+#        
+#        
+#        bpy.context.scene.cursor_location = (plane_x, plane_y, plane_z)
+#        #duplicate the mesh, along the plane
+#        #the ear. nose landmarks must already set.
+#        #build the plane. flip it along the plane.
+#        dupflip_mesh = objects['LSAT_ScanMesh0'].copy()
+#        dupflip_mesh.name = 'LSAT_ScanMesh0_flip'
+#        #bpy.context.scene.objects.link(dupflip_mesh )
+#        #origin_mesh
+#        
+#        #rot_mat = Matrix.Rotation( 50, 4, tilt_correction )   # you can also use as axis Y,Z or a custom vector like (x,y,z)
+
+#        # decompose world_matrix's components, and from them assemble 4x4 matrices
+#        orig_loc, orig_rot, orig_scale = dupflip_mesh.matrix_world.decompose()
+#        #orig_loc.x = plane_x + 0.071
+#        #orig_loc.y -= plane_y
+#        #orig_loc.z -= plane_z
+#        orig_loc_mat = Matrix.Translation( orig_loc )
+#        #orig_loc_mat = Matrix.Translation( (plane_x,plane_y,plane_z) )
+#        orig_rot_mat = orig_rot.to_matrix().to_4x4()
+#        orig_scale_mat = Matrix.Scale(orig_scale[0],4,(1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
+#        scale_mat = Matrix.Scale(-orig_scale[0],4,(-1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
+#        
+#        plane.hide = True
+#        
+#        #create & apply boolean operator
+#        bool_one = origin_mesh.modifiers.new(type="BOOLEAN", name="bool 1")
+#        bool_one.object = chopboard_cube
+#        bool_one.operation = 'DIFFERENCE'
+#        
+#        #bpy.ops.object.modifier_apply(apply_as='DATA', modifier=bool_one.name)
+#        
+#        #calculate volume
+#        
+#        bm = bmesh.new()
+#        bm.from_object(bpy.context.object, bpy.context.scene) # could also use from_mesh() if you don't care about deformation etc.
+
+#        print(bm.calc_volume())
+#        
+#        plane.hide = True
         return {'FINISHED'}
 
 class LSATGenHeatmapOperator(bpy.types.Operator):
@@ -325,17 +364,12 @@ class LSATLEarPlaceLandmarkOperator(bpy.types.Operator):
             
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkLeftEar" 
-#        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
-#            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
-#            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkLeftEar"]
-#            #if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-#            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
         bpy.ops.transform.translate('INVOKE_DEFAULT')
         print("Left Ear Landmark Placement" )
-        bpy.context.scene.objects.active = bpy.data.objects[ designatedObjectForLandmark ]
+        bpy.context.scene.objects.active = bpy.data.objects[designatedObjectForLandmark]
         																				  
         return {'FINISHED'}
 
@@ -365,11 +399,6 @@ class LSATREarPlaceLandmarkOperator(bpy.types.Operator):
             
         bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
         bpy.context.object.name = designatedObjectForLandmark + "_LandmarkRightEar"
-#        if(designatedObjectForLandmark + "_LandmarkNose" in bpy.context.scene.objects):
-#            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
-#            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_LandmarkRightEar"]
-#            if(designatedObjectForLandmark + "_LandmarkLeftEar"):
-#            #    LSATTrackToConstraint.influence = 0.5
         context.scene.tool_settings.use_snap = True
         context.scene.tool_settings.snap_element = 'FACE'
         context.scene.tool_settings.use_snap_align_rotation = False
@@ -530,23 +559,69 @@ class LSATAlignScansOperator(bpy.types.Operator):
             UsingUniqueLandmarks = True
         return UsingUniqueLandmarks
 	
+    #perform head rotation correction at the same time as the scans are aligned
+    def correctHeadRotation(self):
+        originMesh = bpy.context.scene.objects['LSAT_ScanMesh0']
+        sceneObjects = bpy.context.scene.objects
+        #create a triangle connecting the left ear, right ear and nose landmarks
+        HeadTiltPlaneVertices = [sceneObjects[originMesh.name + "_LandmarkLeftEar"].location, sceneObjects[originMesh.name + "_LandmarkNose"].location,sceneObjects[originMesh.name + "_LandmarkRightEar"].location]
+        HeadTiltPlaneFace = [(0,2,1)] #order to get normal facing upwards
+        HeadTiltPlaneMesh = bpy.data.meshes.new('HeadTiltPlane')
+        HeadTiltPlaneMesh.from_pydata(HeadTiltPlaneVertices, [], HeadTiltPlaneFace)     
+        HeadTiltPlaneMesh.update()
+        HeadTiltPlaneObject = bpy.data.objects.new('HeadTiltPlane', HeadTiltPlaneMesh)
+        sceneObjects.link(HeadTiltPlaneObject)
+        #apply the origin point of the triangle
+        bpy.ops.object.select_all(action='DESELECT')
+        HeadTiltPlaneObject.select = True
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        #add an empty to copy the normal rotation of the triangle mesh
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.empty_add(type='PLAIN_AXES',location=(0,0,0),radius=2)
+        bpy.context.object.name = originMesh.name + "_HeadTiltOrientation"
+        bpy.context.object.parent = HeadTiltPlaneObject
+        HeadTiltPlaneObject.dupli_type = 'FACES'
+        HeadTiltPlaneObject.select = True
+        bpy.ops.object.duplicates_make_real()
+        #delete the template empty and rename the empty with the correct rotations
+        bpy.ops.object.select_all(action='DESELECT')
+        sceneObjects[originMesh.name + "_HeadTiltOrientation"].select = True
+        bpy.ops.object.delete(use_global=False)
+        bpy.ops.object.select_all(action='DESELECT')
+        sceneObjects[originMesh.name + "_HeadTiltOrientation.001"].name = originMesh.name + "_HeadTiltOrientation"
+        #parent the target mesh to the nose landmark in case the alignment step has not been run
+        originMesh.parent = sceneObjects[originMesh.name + "_LandmarkNose"]
+        originMesh.matrix_parent_inverse = sceneObjects[originMesh.name + "_LandmarkNose"].matrix_world.inverted()
+        #parent the nose landmark to the rotation correction empty, keeping parent offset
+        sceneObjects[originMesh.name + "_LandmarkNose"].parent = sceneObjects[originMesh.name + "_HeadTiltOrientation"]
+        sceneObjects[originMesh.name + "_LandmarkNose"].matrix_parent_inverse = sceneObjects[originMesh.name + "_HeadTiltOrientation"].matrix_world.inverted()
+        #reset the rotation of the rotation correction empty to remove head offset
+        bpy.ops.object.select_all(action='DESELECT')
+        sceneObjects[originMesh.name + "_HeadTiltOrientation"].select = True
+        bpy.context.scene.objects.active = sceneObjects[originMesh.name + "_HeadTiltOrientation"]
+        bpy.context.object.rotation_euler[0] = 0
+        bpy.context.object.rotation_euler[1] = 0
+
     def execute(self, context):
         #are the landmarks labeled nose, left ear, right ear
         LSATUsingUniqueLandmarks = self.checkUniqueLandmarkUse()
+        #if the landmarks are nose, left ear and right ear
         if(LSATUsingUniqueLandmarks == True):
             print( "Unique Landmark Alignment") 
+            #iterate through all LSAT scans in the scene and set up the nose constraints so the nose landmark points between the ear landmarks
             for MeshNumber in range(self.countImportedMeshes()):
                 LSATLeftEarTrackToConstraint = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].constraints.new('TRACK_TO')
                 LSATLeftEarTrackToConstraint.target = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkLeftEar"]
-                LSATLeftEarTrackToConstraint.influence = 1
+                LSATLeftEarTrackToConstraint.influence = 1 #first influence must be maximum
                 LSATRightEarTrackToConstraint = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].constraints.new('TRACK_TO')
                 LSATRightEarTrackToConstraint.target = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkRightEar"]
-                LSATRightEarTrackToConstraint.influence = 0.5
-                
+                LSATRightEarTrackToConstraint.influence = 0.5 #second influence is half so that the landmark points to the middle of both ears
+                #bake the location and rotation of the nose landmark and parent the current iterated mesh to its nose landmark
                 bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"]
                 bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
                 bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber)].parent = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"]
                 bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber)].matrix_parent_inverse = bpy.data.objects["LSAT_ScanMesh" + str(MeshNumber) + "_LandmarkNose"].matrix_world.inverted()
+            #iterate through all LSAT scans in the scene and snap the nose landmarks to the nose landmark of the first scan
             for LSATScanMesh in range(1,self.countImportedMeshes()):
                 LSATCopyLocationConstraint = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].constraints.new('COPY_LOCATION')
                 LSATCopyLocationConstraint.target = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose']
@@ -555,8 +630,15 @@ class LSATAlignScansOperator(bpy.types.Operator):
                 bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose']
                 bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
                 bpy.ops.object.select_all(action='DESELECT')
-                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].select = True	
-        elif(UsingUniqueLandmarks == False):
+                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].select = True
+                #zoom the camera into the manual alignment landmark
+                bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
+                #as long as the iterated mesh is not the first, parent subsequent nose landmarks to the first scan's nose landmark so that head rotation correction corrects all heads
+                if(LSATScanMesh != 0):
+                    bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].parent = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose']
+                    bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].matrix_parent_inverse = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose'].matrix_world.inverted()
+                    self.correctHeadRotation()
+        elif(UsingUniqueLandmarks == False): #not using nose and ear labeled landmarks
             #get the maximum count of any numeric landmark collection
             LSATLandmarkCount = self.countImportedLandmarks()
             if(LSATLandmarkCount < 0):
@@ -594,13 +676,10 @@ class LSATAlignScansOperator(bpy.types.Operator):
                 bpy.context.scene.objects.active = bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0']
                 bpy.ops.nla.bake(frame_start=1,frame_end=1,step=1,only_selected=True,visual_keying=True,clear_constraints=True,use_current_action=True,bake_types={'OBJECT'})
                 bpy.ops.object.select_all(action='DESELECT')
-                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].select = True						 
-												   
-        #zoom the camera into the manual alignment landmark and activate manual rotation tweak
-        bpy.ops.view3d.view_selected('INVOKE_DEFAULT')
+                bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_Landmark0'].select = True	
+                #zoom the camera into the manual alignment landmark
+                bpy.ops.view3d.view_selected('INVOKE_DEFAULT')			 										   
         context.scene.tool_settings.use_snap = False
-        #use trackball for manual alignment, but running it straight after auto align breaks the result!
-        #bpy.ops.transform.trackball('INVOKE_DEFAULT') 
         print( "Auto Alignment")    
         return {'FINISHED'}
 

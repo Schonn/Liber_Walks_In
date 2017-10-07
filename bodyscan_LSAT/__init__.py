@@ -145,6 +145,7 @@ class LSATVolSelectionOperator(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         #TODO: add a for loop here to flip all meshes and combine them all
         bpy.data.objects["LSAT_ScanMesh1"].select = True
+        bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh1"]
         #quickly go into edit mode and flip the normals
         bpy.ops.object.editmode_toggle()
         bpy.ops.mesh.flip_normals()

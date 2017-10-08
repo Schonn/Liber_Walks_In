@@ -88,8 +88,8 @@ class LSAT_VolumePanel(bpy.types.Panel):
     bl_context = 'objectmode'
     bl_category = 'Scan'
     def draw(self, context):
-        self.layout.operator('lsat.vol_select_area', text ='Selection')
-        self.layout.operator('lsat.vol_extract_area', text ='Extraction')
+        self.layout.operator('lsat.vol_select_area_y', text ='Select Coronal')
+        self.layout.operator('lsat.vol_select_area_x', text ='Select Sagittal')
         self.layout.operator('lsat.vol_measure_diff', text ='Measure Total Difference')
         
 #Map panel class
@@ -108,6 +108,7 @@ class LSATSagittalPlaneOperator(bpy.types.Operator):
     bl_label = "Place Sagittal Plane"
 
     def execute(self, context):
+        context.scene.tool_settings.use_snap = False
         bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
         bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
         bpy.ops.transform.rotate(value=1.5708,axis=(0,0,1))
@@ -120,6 +121,7 @@ class LSATCoronalPlaneOperator(bpy.types.Operator):
     bl_label = "Place Coronal Plane"
 
     def execute(self, context):
+        context.scene.tool_settings.use_snap = False
         bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
         bpy.ops.transform.rotate(value=1.5708,axis=(1,0,0))
         bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,True,False),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
@@ -131,31 +133,33 @@ class LSATTransverseAxialPlaneOperator(bpy.types.Operator):
     bl_label = "Place Transverse Axial Plane"
 
     def execute(self, context):
+        context.scene.tool_settings.use_snap = False
         bpy.ops.mesh.primitive_plane_add(radius=100, view_align=False, enter_editmode=False, location=(0,0,0))
         bpy.ops.transform.translate('INVOKE_DEFAULT',constraint_axis=(False,False,True),constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED')
         print("Transverse Axial Plane Placed")
         return {'FINISHED'}
 
-class LSATVolSelectionOperator(bpy.types.Operator):
-    bl_idname = "lsat.vol_select_area"
-    bl_label = "Area Selection"
+class LSATVolSelectionOperatorY(bpy.types.Operator):
+    bl_idname = "lsat.vol_select_area_y"
+    bl_label = "Coronal Area Selection"
 
     def execute(self, context):
-        #deselect everything so only the desired meshes are selected
-        bpy.ops.object.select_all(action='DESELECT')
-        #TODO: add a for loop here to flip all meshes and combine them all
-        bpy.data.objects["LSAT_ScanMesh1"].select = True
-        bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh1"]
-        #quickly go into edit mode and flip the normals
-        bpy.ops.object.editmode_toggle()
-        bpy.ops.mesh.flip_normals()
-        #return to object mode
-        bpy.ops.object.mode_set()
-        #add the first mesh to the selection and join all meshes
-        bpy.data.objects["LSAT_ScanMesh0"].select = True
-        bpy.ops.object.join()
-        bpy.context.object.name = "LSAT_ScanMeshCombined" 
-        bpy.ops.object.select_all(action='DESELECT')
+        if(not "LSAT_ScanMeshCombined" in bpy.data.objects):
+            #deselect everything so only the desired meshes are selected
+            bpy.ops.object.select_all(action='DESELECT')
+            #TODO: add a for loop here to flip all meshes and combine them all
+            bpy.data.objects["LSAT_ScanMesh1"].select = True
+            bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh1"]
+            #quickly go into edit mode and flip the normals
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.mesh.flip_normals()
+            #return to object mode
+            bpy.ops.object.mode_set()
+            #add the first mesh to the selection and join all meshes
+            bpy.data.objects["LSAT_ScanMesh0"].select = True
+            bpy.ops.object.join()
+            bpy.context.object.name = "LSAT_ScanMeshCombined" 
+            bpy.ops.object.select_all(action='DESELECT')
         
         #make sphere and add shrinkwrap
         bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5,size=3,location=(1000,1000,1000))
@@ -176,12 +180,45 @@ class LSATVolSelectionOperator(bpy.types.Operator):
         print("Select Area")
         return {'FINISHED'}
     
-class LSATVolExtractionOperator(bpy.types.Operator):
-    bl_idname = "lsat.vol_extract_area"
-    bl_label = "Volume Extraction"
+class LSATVolSelectionOperatorX(bpy.types.Operator):
+    bl_idname = "lsat.vol_select_area_x"
+    bl_label = "Sagittal Area Selection"
 
     def execute(self, context):
-        print("Volume Extraction")
+        if(not "LSAT_ScanMeshCombined" in bpy.data.objects):
+            #deselect everything so only the desired meshes are selected
+            bpy.ops.object.select_all(action='DESELECT')
+            #TODO: add a for loop here to flip all meshes and combine them all
+            bpy.data.objects["LSAT_ScanMesh1"].select = True
+            bpy.context.scene.objects.active = bpy.data.objects["LSAT_ScanMesh1"]
+            #quickly go into edit mode and flip the normals
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.mesh.flip_normals()
+            #return to object mode
+            bpy.ops.object.mode_set()
+            #add the first mesh to the selection and join all meshes
+            bpy.data.objects["LSAT_ScanMesh0"].select = True
+            bpy.ops.object.join()
+            bpy.context.object.name = "LSAT_ScanMeshCombined" 
+            bpy.ops.object.select_all(action='DESELECT')
+        
+        #make sphere and add shrinkwrap
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5,size=3,location=(1000,1000,1000))
+        bpy.context.object.name = "LSAT_VolumeSelectSphere" 
+        volumeSelectShrinkWrap = bpy.context.object.modifiers.new(type='SHRINKWRAP', name="shrinkWrap1")
+        volumeSelectShrinkWrap.target = bpy.data.objects["LSAT_ScanMeshCombined"]
+        volumeSelectShrinkWrap.wrap_method = 'PROJECT'
+        volumeSelectShrinkWrap.use_negative_direction = True
+        volumeSelectShrinkWrap.use_positive_direction = True
+        volumeSelectShrinkWrap.use_project_y = False
+        volumeSelectShrinkWrap.use_project_x = True
+        volumeSelectShrinkWrap.use_project_z = False
+        volumeSelectShrinkWrap.cull_face = 'OFF'
+        context.scene.tool_settings.use_snap = True
+        context.scene.tool_settings.snap_element = 'FACE'
+        context.scene.tool_settings.use_snap_align_rotation = False
+        bpy.ops.transform.translate('INVOKE_DEFAULT')
+        print("Select Area")
         return {'FINISHED'}
     
 class LSATVolMeasureDiffOperator(bpy.types.Operator):
@@ -210,72 +247,19 @@ class LSATVolMeasureDiffOperator(bpy.types.Operator):
         volume = volumeMeshHelper.calc_volume()
         volumeMeshHelper.free()
         print("Volume: %s cm³" % self.clean_float("%.4f" % ((volume * (context.scene.unit_settings.scale_length ** 3.0)) / (0.01 ** 3.0))))
-
-#        #create sagittal plane (between eyes)
-#        planeCreateCoordinates = [0,0,0]
-#        for coordinateAxis in range(0,3):
-#            planeCreateCoordinates[coordinateAxis] = (sceneObjects[originMesh.name + "_LandmarkLeftEar"].location[coordinateAxis] + sceneObjects[originMesh.name + "_LandmarkRightEar"].location[coordinateAxis])
-#        RelativeSagittalPlane = bpy.ops.mesh.primitive_plane_add(radius=200,view_align=False,enter_editmode=False,location=(planeCreateCoordinates[0],planeCreateCoordinates[1],planeCreateCoordinates[2]),rotation=(0,math.pi/2,0))
         
-#       print(HeadTiltPlaneMesh.polygons[0].normal)
-#       HeadTiltPlaneObject.matrix_world *= mathutils.Matrix.Translation(HeadTiltPlaneMesh.polygons[0].center * HeadTiltPlaneMesh.polygons[0].normal.to_track_quat('-Z','Y').to_matrix().to_4x4())
-#       HeadTiltPlaneObject.rotation_euler = mathutils.Euler((HeadTiltPlaneMesh.polygons[0].normal), 'XYZ')
-        
-#        plane = objects['Plane']
-#        plane.name = 'FlipPlane'
-#        
-#        earlobes_dist = abs(objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[0] - objects['LSAT_ScanMesh0_LandmarkRightEar'].location[0] )
-#        print( earlobes_dist )
-#        chopboard_plane_z = plane_z - 3.9*earlobes_dist 
-#        #chopboard_plane_y = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[1] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[1] ) / 2
-#        #chopboard_plane_z = (objects['LSAT_ScanMesh0_LandmarkLeftEar'].location[2] + objects['LSAT_ScanMesh0_LandmarkRightEar'].location[2] ) / 2
-#      
-#        chopboard_cube = bpy.ops.mesh.primitive_cube_add( view_align=False, enter_editmode=False, location=(plane_x, plane_y, chopboard_plane_z) )
-
-#        chopboard_cube = objects['Cube']
-#        chopboard_cube.name = 'ChoppingBoardCube'
-#        chopboard_cube.scale = (2, 2,0.57)
-#        
-#        
-#        bpy.context.scene.cursor_location = (plane_x, plane_y, plane_z)
-#        #duplicate the mesh, along the plane
-#        #the ear. nose landmarks must already set.
-#        #build the plane. flip it along the plane.
-#        dupflip_mesh = objects['LSAT_ScanMesh0'].copy()
-#        dupflip_mesh.name = 'LSAT_ScanMesh0_flip'
-#        #bpy.context.scene.objects.link(dupflip_mesh )
-#        #origin_mesh
-#        
-#        #rot_mat = Matrix.Rotation( 50, 4, tilt_correction )   # you can also use as axis Y,Z or a custom vector like (x,y,z)
-
-#        # decompose world_matrix's components, and from them assemble 4x4 matrices
-#        orig_loc, orig_rot, orig_scale = dupflip_mesh.matrix_world.decompose()
-#        #orig_loc.x = plane_x + 0.071
-#        #orig_loc.y -= plane_y
-#        #orig_loc.z -= plane_z
-#        orig_loc_mat = Matrix.Translation( orig_loc )
-#        #orig_loc_mat = Matrix.Translation( (plane_x,plane_y,plane_z) )
-#        orig_rot_mat = orig_rot.to_matrix().to_4x4()
-#        orig_scale_mat = Matrix.Scale(orig_scale[0],4,(1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
-#        scale_mat = Matrix.Scale(-orig_scale[0],4,(-1,0,0)) * Matrix.Scale(orig_scale[1],4,(0,1,0)) * Matrix.Scale(orig_scale[2],4,(0,0,1))
-#        
-#        plane.hide = True
-#        
-#        #create & apply boolean operator
-#        bool_one = origin_mesh.modifiers.new(type="BOOLEAN", name="bool 1")
-#        bool_one.object = chopboard_cube
-#        bool_one.operation = 'DIFFERENCE'
-#        
-#        #bpy.ops.object.modifier_apply(apply_as='DATA', modifier=bool_one.name)
-#        
-#        #calculate volume
-#        
-#        bm = bmesh.new()
-#        bm.from_object(bpy.context.object, bpy.context.scene) # could also use from_mesh() if you don't care about deformation etc.
-
-#        print(bm.calc_volume())
-#        
-#        plane.hide = True
+        LSATSelectedVolume = context.active_object
+        bpy.ops.view3d.snap_cursor_to_selected()
+        LSATTextObject = bpy.ops.object.text_add(radius=1,view_align=True)
+        bpy.data.objects["Text"].data.body = "Volume: %s cm³" % self.clean_float("%.4f" % ((volume * (context.scene.unit_settings.scale_length ** 3.0)) / (0.01 ** 3.0)))
+        bpy.data.objects["Text"].show_x_ray = True
+        bpy.data.objects["Text"].name = "LSAT_MeasurementText"
+        LSATNewColor = bpy.data.materials.new(name="LSATTextBlack")
+        LSATNewColor.darkness = 0
+        LSATNewColor.diffuse_color = (0,0,0)
+        LSATNewColor.use_shadeless = True
+        bpy.context.active_object.data.materials.append(LSATNewColor)
+        bpy.context.scene.objects.active = LSATSelectedVolume
         return {'FINISHED'}
 
 class LSATGenHeatmapOperator(bpy.types.Operator):
@@ -698,8 +682,8 @@ def register():
     bpy.utils.register_class(LSATAutoPlaceLandmarkOperator)
     bpy.utils.register_class(LSATPlaceLandmarkOperator)
     bpy.utils.register_class(LSATAlignScansOperator)
-    bpy.utils.register_class(LSATVolSelectionOperator)
-    bpy.utils.register_class(LSATVolExtractionOperator)
+    bpy.utils.register_class(LSATVolSelectionOperatorY)
+    bpy.utils.register_class(LSATVolSelectionOperatorX)
     bpy.utils.register_class(LSATVolMeasureDiffOperator)
     bpy.utils.register_class(LSATGenHeatmapOperator)
     bpy.utils.register_class(LSATSagittalPlaneOperator)
@@ -721,8 +705,8 @@ def unregister():
     bpy.utils.unregister_class(LSATAutoPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATAlignScansOperator)
-    bpy.utils.unregister_class(LSATVolSelectionOperator)
-    bpy.utils.unregister_class(LSATVolExtractionOperator)
+    bpy.utils.unregister_class(LSATVolSelectionOperatorY)
+    bpy.utils.unregister_class(LSATVolSelectionOperatorX)
     bpy.utils.unregister_class(LSATVolMeasureDiffOperator)
     bpy.utils.unregister_class(LSATGenHeatmapOperator)
     bpy.utils.unregister_class(LSATSagittalPlaneOperator)

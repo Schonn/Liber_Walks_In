@@ -68,7 +68,7 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
         self.layout.operator('lsat.nose_place_landmark', text ='Place Nose Landmark')
         self.layout.operator('lsat.l_ear_place_landmark', text ='Place Left Ear Landmark')
         self.layout.operator('lsat.r_ear_place_landmark', text ='Place Right Ear Landmark')
-        self.layout.operator('lsat.auto_place_landmark', text ='Autodetect Landmark Placement')
+        #self.layout.operator('lsat.auto_place_landmark', text ='Autodetect Landmark Placement')
 
 #Scan Alignment panel class
 class LSAT_ScanAlignmentPanel(bpy.types.Panel):
@@ -674,7 +674,7 @@ def register():
     bpy.utils.register_class(LSAT_PointPlacementPanel)
     bpy.utils.register_class(LSAT_ScanAlignmentPanel)
     bpy.utils.register_class(LSAT_VolumePanel)
-    bpy.utils.register_class(LSAT_MapPanel)
+    #bpy.utils.register_class(LSAT_MapPanel)
     bpy.utils.register_class(LSATImportOperator)
     bpy.utils.register_class(LSATNosePlaceLandmarkOperator)
     bpy.utils.register_class(LSATLEarPlaceLandmarkOperator)
@@ -697,7 +697,7 @@ def unregister():
     bpy.utils.unregister_class(LSAT_PointPlacementPanel)
     bpy.utils.unregister_class(LSAT_ScanAlignmentPanel)
     bpy.utils.unregister_class(LSAT_VolumePanel)
-    bpy.utils.unregister_class(LSAT_MapPanel)
+    #bpy.utils.unregister_class(LSAT_MapPanel)
     bpy.utils.unregister_class(LSATImportOperator)
     bpy.utils.unregister_class(LSATNosePlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATLEarPlaceLandmarkOperator)

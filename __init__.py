@@ -20,7 +20,7 @@
 bl_info = {
     "name": "Lymphoedema 3D Scan Analysis Toolset",
     "author": "Ivan Prga, Annette Nguyen, Jaspreet Kaur., Abdullah Albeladi, Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (2, 7, 4),
     "description": "A toolset for importing, aligning and analysing 3D scans of lymphoedema patients.",
     "category": "Mesh"
@@ -51,7 +51,7 @@ class LSAT_SetupPanel(bpy.types.Panel):
     bl_context = 'objectmode'
     bl_category = 'Scan'
     def draw(self, context):
-        self.layout.operator('lsat.importsetup', text ='Import PLY')
+        self.layout.operator('lsat.importsetup', text ='Import PLY or OBJ')
         
 #Point placement panel class
 class LSAT_PointPlacementPanel(bpy.types.Panel):
@@ -68,6 +68,7 @@ class LSAT_PointPlacementPanel(bpy.types.Panel):
         self.layout.operator('lsat.nose_place_landmark', text ='Place Nose Landmark')
         self.layout.operator('lsat.l_ear_place_landmark', text ='Place Left Ear Landmark')
         self.layout.operator('lsat.r_ear_place_landmark', text ='Place Right Ear Landmark')
+        self.layout.operator('lsat.placelandmark', text ='Place Generic Landmark')
         #self.layout.operator('lsat.auto_place_landmark', text ='Autodetect Landmark Placement')
 
 #Scan Alignment panel class
@@ -78,7 +79,8 @@ class LSAT_ScanAlignmentPanel(bpy.types.Panel):
     bl_context = 'objectmode'
     bl_category = 'Scan'
     def draw(self, context):
-        self.layout.operator('lsat.alignscans', text ='Auto Align')
+        self.layout.operator('lsat.alignscans', text ='Auto Align Using Landmarks')
+        self.layout.operator('lsat.alignscansgeneric', text ='Auto Align Generic Landmarks')
         
 #Volume panel class
 class LSAT_VolumePanel(bpy.types.Panel):
@@ -90,7 +92,7 @@ class LSAT_VolumePanel(bpy.types.Panel):
     def draw(self, context):
         self.layout.operator('lsat.vol_select_area_y', text ='Select Coronal')
         self.layout.operator('lsat.vol_select_area_x', text ='Select Sagittal')
-        self.layout.operator('lsat.vol_measure_diff', text ='Measure Total Difference')
+        self.layout.operator('lsat.vol_measure_diff', text ='Measure Volume Of Selected')
         
 #Map panel class
 class LSAT_MapPanel(bpy.types.Panel):
@@ -270,10 +272,10 @@ class LSATGenHeatmapOperator(bpy.types.Operator):
         print("Generate heatmap")
         return {'FINISHED'}    
     
-#class to perform additional actions while importing ply
+#class to perform additional actions while importing ply or obj
 class LSATImportOperator(bpy.types.Operator):
     bl_idname = "lsat.importsetup"
-    bl_label = "Import .PLY"
+    bl_label = "Import .PLY or .OBJ"
     LSAT_Firstrun = bpy.props.BoolProperty(name="LSATFirstRun",default=True) #for clearing scene
     #filepath is an attribute of the operator type so this name must be used
     filepath = bpy.props.StringProperty(subtype="FILE_PATH")
@@ -287,15 +289,15 @@ class LSATImportOperator(bpy.types.Operator):
         return MeshCount
     
     #call the operator and open the file selector, the operator only moves into execute once
-    #a file has been selected. TODO: add a ply filter
+    #a file has been selected.
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
     
     #once the file path is chosen, the operator moves to execute mode
     def execute(self, context):
-        if self.filepath.split('.')[-1] != 'ply':
-            self.report({'INFO'},'Please select a PLY file.')
+        if self.filepath.split('.')[-1] != 'ply' and self.filepath.split('.')[-1] != 'obj':
+            self.report({'INFO'},'Please select a PLY or OBJ file.')
         else:
             #deselect all objects so we end up only selecting the newly imported object
             bpy.ops.object.select_all(action='DESELECT')
@@ -308,7 +310,7 @@ class LSATImportOperator(bpy.types.Operator):
                 bpy.ops.object.select_all(action='SELECT')
                 bpy.ops.object.delete(use_global=False)
                 self.LSAT_Firstrun = False
-            #import the ply from the file that was selected in invoke
+            #import the ply or obj from the file that was selected in invoke
             bpy.ops.import_mesh.ply(filepath=self.filepath)
             #change the imported object's name and offset location
             bpy.context.object.name = "LSAT_ScanMesh" + str(self.countImportedMeshes())
@@ -392,46 +394,6 @@ class LSATREarPlaceLandmarkOperator(bpy.types.Operator):
         bpy.context.scene.objects.active = bpy.data.objects[ designatedObjectForLandmark ]
         																				  
         return {'FINISHED'}
-       
-class LSATAutoPlaceLandmarkOperator(bpy.types.Operator):
-    bl_idname = "lsat.auto_place_landmark"
-    bl_label = "Place Landmark Automatically for Alignment in LSAT"
-
-    #count the number of created landmarks in the scene
-    def countImportedLandmarks(self, designatedObject):
-        LandmarkCount = 0
-        for PotentialLandmark in bpy.context.scene.objects:
-            if PotentialLandmark.type == 'EMPTY' and PotentialLandmark.name.find(designatedObject + "_Landmark") > -1:
-                LandmarkCount += 1
-        return LandmarkCount
-
-    def execute(self, context):
-        if(bpy.context.object == None):
-            self.report({'INFO'},'Please select an object.')
-            return {'CANCELLED'}
-        #first get the name of the currently selected mesh to assign landmarks to
-        designatedObjectForLandmark = bpy.context.object.name
-         #if it is a landmark we have selected, get the original object from the landmark name
-        landmarkOwnerNameEnd = designatedObjectForLandmark.find("_Landmark")
-        if(landmarkOwnerNameEnd > -1):
-            designatedObjectForLandmark = designatedObjectForLandmark[:landmarkOwnerNameEnd] #chop off the characters which follow the owner name
-        print("got designated object for landmark: " + str(designatedObjectForLandmark))
-
-        #deselect all objects so we end up only selecting the newly created landmark
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.empty_add(type='PLAIN_AXES',location=(1000,1000,1000),radius=2)
-        bpy.context.object.name = designatedObjectForLandmark + "_Landmark" + str(self.countImportedLandmarks(designatedObjectForLandmark))
-        if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 0):
-            LSATTrackToConstraint = bpy.data.objects[designatedObjectForLandmark + "_LandmarkNose"].constraints.new('TRACK_TO')
-            LSATTrackToConstraint.target = bpy.data.objects[designatedObjectForLandmark + "_Landmark" + str(self.countImportedLandmarks(designatedObjectForLandmark)-1)]
-            if(self.countImportedLandmarks(designatedObjectForLandmark)-1 > 1):
-                LSATTrackToConstraint.influence = 0.5
-        context.scene.tool_settings.use_snap = True
-        context.scene.tool_settings.snap_element = 'FACE'
-        context.scene.tool_settings.use_snap_align_rotation = False
-        bpy.ops.transform.translate('INVOKE_DEFAULT')
-        print("Automatic Landmark Placement" )
-        return {'FINISHED'}
             
 class LSATNosePlaceLandmarkOperator(bpy.types.Operator):
     bl_idname = "lsat.nose_place_landmark"
@@ -461,10 +423,10 @@ class LSATNosePlaceLandmarkOperator(bpy.types.Operator):
         return {'FINISHED'}
     
        
-#class to place landmarks on the object surface
+#class to place generic landmarks on the object surface
 class LSATPlaceLandmarkOperator(bpy.types.Operator):
     bl_idname = "lsat.placelandmark"
-    bl_label = "Place Landmark for Alignment in LSAT"
+    bl_label = "Place Generic Landmark"
 
     #count the number of created landmarks in the scene
     def countImportedLandmarks(self, designatedObject):
@@ -500,10 +462,10 @@ class LSATPlaceLandmarkOperator(bpy.types.Operator):
         bpy.ops.transform.translate('INVOKE_DEFAULT')
         return {'FINISHED'}
     
-#class to align the 3d scans using the landmarks
+#class to align the 3d meshes, this class chooses head landmarks over generic, but it will work out which one is in use
 class LSATAlignScansOperator(bpy.types.Operator):
     bl_idname = "lsat.alignscans"
-    bl_label = "Align 3D Scans for LSAT"
+    bl_label = "Align Meshes using Landmarks"
 
     #count the number of imported LSAT meshes in the scene
     def countImportedMeshes(self):
@@ -623,7 +585,7 @@ class LSATAlignScansOperator(bpy.types.Operator):
                     bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].parent = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose']
                     bpy.data.objects['LSAT_ScanMesh' + str(LSATScanMesh) + '_LandmarkNose'].matrix_parent_inverse = bpy.data.objects['LSAT_ScanMesh0_LandmarkNose'].matrix_world.inverted()
                     self.correctHeadRotation()
-        elif(UsingUniqueLandmarks == False): #not using nose and ear labeled landmarks
+        elif(LSATUsingUniqueLandmarks == False): #not using nose and ear labeled landmarks
             #get the maximum count of any numeric landmark collection
             LSATLandmarkCount = self.countImportedLandmarks()
             if(LSATLandmarkCount < 0):
@@ -679,7 +641,7 @@ def register():
     bpy.utils.register_class(LSATNosePlaceLandmarkOperator)
     bpy.utils.register_class(LSATLEarPlaceLandmarkOperator)
     bpy.utils.register_class(LSATREarPlaceLandmarkOperator)
-    bpy.utils.register_class(LSATAutoPlaceLandmarkOperator)
+    #bpy.utils.register_class(LSATAutoPlaceLandmarkOperator)
     bpy.utils.register_class(LSATPlaceLandmarkOperator)
     bpy.utils.register_class(LSATAlignScansOperator)
     bpy.utils.register_class(LSATVolSelectionOperatorY)
@@ -702,7 +664,7 @@ def unregister():
     bpy.utils.unregister_class(LSATNosePlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATLEarPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATREarPlaceLandmarkOperator)
-    bpy.utils.unregister_class(LSATAutoPlaceLandmarkOperator)
+    #bpy.utils.unregister_class(LSATAutoPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATAlignScansOperator)
     bpy.utils.unregister_class(LSATVolSelectionOperatorY)

@@ -20,9 +20,9 @@
 bl_info = {
     "name": "Lymphoedema 3D Scan Analysis Toolset",
     "author": "Ivan Prga, Annette Nguyen, Jaspreet Kaur., Abdullah Albeladi, Michael Stagg, Maxwell Heaysman, Schonn-Pierre Hirst",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (2, 7, 4),
-    "description": "A toolset for importing, aligning and analysing 3D scans of lymphoedema patients.",
+    "description": "A toolset for importing, aligning and analysing 3D body scans.",
     "category": "Mesh"
     }
 
@@ -52,6 +52,7 @@ class LSAT_SetupPanel(bpy.types.Panel):
     bl_category = 'Scan'
     def draw(self, context):
         self.layout.operator('lsat.importsetup', text ='Import PLY or OBJ')
+        self.layout.operator('lsat.correct_rotation', text ='Flip Selected Scan')
         
 #Point placement panel class
 class LSAT_PointPlacementPanel(bpy.types.Panel):
@@ -80,7 +81,6 @@ class LSAT_ScanAlignmentPanel(bpy.types.Panel):
     bl_category = 'Scan'
     def draw(self, context):
         self.layout.operator('lsat.alignscans', text ='Auto Align Using Landmarks')
-        self.layout.operator('lsat.alignscansgeneric', text ='Auto Align Generic Landmarks')
         
 #Volume panel class
 class LSAT_VolumePanel(bpy.types.Panel):
@@ -272,6 +272,17 @@ class LSATGenHeatmapOperator(bpy.types.Operator):
         print("Generate heatmap")
         return {'FINISHED'}    
     
+#class to correct upside down rotation
+class LSATCorrectRotationOperator(bpy.types.Operator):
+    bl_idname = "lsat.correct_rotation"
+    bl_label = "Correct Rotation of a Structure Scan"
+    
+    def execute(self, context):
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        bpy.ops.transform.rotate(value=3.14159,axis=(1,0,0))
+        print("Corrected rotation")
+        return {'FINISHED'} 
+
 #class to perform additional actions while importing ply or obj
 class LSATImportOperator(bpy.types.Operator):
     bl_idname = "lsat.importsetup"
@@ -296,22 +307,28 @@ class LSATImportOperator(bpy.types.Operator):
     
     #once the file path is chosen, the operator moves to execute mode
     def execute(self, context):
+        importType = None
         if self.filepath.split('.')[-1] != 'ply' and self.filepath.split('.')[-1] != 'obj':
             self.report({'INFO'},'Please select a PLY or OBJ file.')
         else:
+            importType = self.filepath.split('.')[-1]
             #deselect all objects so we end up only selecting the newly imported object
             bpy.ops.object.select_all(action='DESELECT')
             #change measurements to centimetres
             context.scene.unit_settings.system = 'METRIC'
             context.scene.unit_settings.scale_length = 0.01
-            #if this is the first import, clear the scene and set shading to solid
+            #if this is the first import, clear the scene and set shading to Texture
             if(self.LSAT_Firstrun == True):
-                context.space_data.viewport_shade = 'SOLID'
+                context.space_data.viewport_shade = 'TEXTURED'
                 bpy.ops.object.select_all(action='SELECT')
                 bpy.ops.object.delete(use_global=False)
                 self.LSAT_Firstrun = False
             #import the ply or obj from the file that was selected in invoke
-            bpy.ops.import_mesh.ply(filepath=self.filepath)
+            if(importType == 'ply'):
+                bpy.ops.import_mesh.ply(filepath=self.filepath)
+            elif(importType == 'obj'):
+                bpy.ops.import_scene.obj(filepath=self.filepath)
+            bpy.context.scene.objects.active = bpy.context.selected_objects[0]
             #change the imported object's name and offset location
             bpy.context.object.name = "LSAT_ScanMesh" + str(self.countImportedMeshes())
             bpy.ops.transform.resize(value=(100,100,100))
@@ -642,6 +659,7 @@ def register():
     bpy.utils.register_class(LSATLEarPlaceLandmarkOperator)
     bpy.utils.register_class(LSATREarPlaceLandmarkOperator)
     #bpy.utils.register_class(LSATAutoPlaceLandmarkOperator)
+    bpy.utils.register_class(LSATCorrectRotationOperator)
     bpy.utils.register_class(LSATPlaceLandmarkOperator)
     bpy.utils.register_class(LSATAlignScansOperator)
     bpy.utils.register_class(LSATVolSelectionOperatorY)
@@ -665,6 +683,7 @@ def unregister():
     bpy.utils.unregister_class(LSATLEarPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATREarPlaceLandmarkOperator)
     #bpy.utils.unregister_class(LSATAutoPlaceLandmarkOperator)
+    bpy.utils.unregister_class(LSATCorrectRotationOperator)
     bpy.utils.unregister_class(LSATPlaceLandmarkOperator)
     bpy.utils.unregister_class(LSATAlignScansOperator)
     bpy.utils.unregister_class(LSATVolSelectionOperatorY)
